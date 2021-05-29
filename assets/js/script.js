@@ -13,6 +13,8 @@ var createTask = function(taskText, taskDate, taskList) {
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
+  //check due date
+  auditTask(taskLi);
 
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
@@ -44,6 +46,29 @@ var loadTasks = function() {
 var saveTasks = function() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 };
+
+var auditTask = function(taskEl) {
+  // get date from task element
+  var date = $(taskEl)
+  .find("span")
+  .text()
+  .trim();
+
+  // convert to moment object at 5:00pm
+  var time = moment(date, "L").set("hour", 17);
+
+  // remove any old classes from element
+  $(taskEl).removeClass("list-group-item-warning list-group-item-danger");
+
+  // apply new class if task is near/over due date
+  if (moment().isAfter(time)) {
+    $(taskEl).addClass("list-group-item-danger");
+  }
+  else if (Math.abs(moment().diff(time, "days")) <= 2) {
+    $(taskEl).addClass("list-group-item-warning");
+  }
+};
+
 // sortable
 $(".card .list-group").sortable({
   connectWith: $(".card .list-group"),
@@ -111,12 +136,16 @@ $("#trash").droppable({
     console.log(ui);
   }
 });
+
+// datepicker
+$("#modalDueDate").datepicker({
+  minDate: 1
+});
 // modal was triggered
 $("#task-form-modal").on("show.bs.modal", function() {
   // clear values
   $("#modalTaskDescription, #modalDueDate").val("");
 });
-
 // modal is fully visible
 $("#task-form-modal").on("shown.bs.modal", function() {
   // highlight textarea
@@ -147,22 +176,23 @@ $("#task-form-modal .btn-primary").click(function() {
 
 // updated function
 $(".list-group").on("click", "p", function() {
+  // get current text of p element
   var text = $(this)
-  .text()
-  .trim();
+    .text()
+    .trim();
 
-  // create new text area
+  // replace p element with a new textarea
   var textInput = $("<textarea>").addClass("form-control").val(text);
   $(this).replaceWith(textInput);
 
-  // append
+  // auto focus new element
   textInput.trigger("focus");
-  });
+});
 
   // new event listener
   $(".list-group").on("blur", "textarea", function() {
-    // get the textarea current value/text
-var text = $(this).val();
+    // get current value of textarea
+    var text = $(this).val();
 
 
 // get the parent uls id attribute
@@ -181,7 +211,7 @@ tasks[status][index].text = text;
 saveTasks();
 
 // recreate p element
-var task = $("<p>")
+var taskP = $("<p>")
   .addClass("m-1")
   .text(text);
 
@@ -206,6 +236,14 @@ $(".list-group").on("click", "span", function() {
   $(this).replaceWith(dateInput);
 
   // automatically focus on new element
+  dateInput.datepicker({
+    minDate: 1,
+    onClose: function() {
+      // when calendar is closed, force a "change" event
+      $(this).trigger("change");
+    }
+  });
+  // automatically bring up calendar
   dateInput.trigger("focus");
 });
 
@@ -236,6 +274,7 @@ $(".list-group").on("blur", "input[type='text']", function() {
 
   // replace input with span element
   $(this).replaceWith(taskSpan);
+  auditTask($(taskSpan).closest(".list-group-item"));
 });
 
 // remove all tasks
